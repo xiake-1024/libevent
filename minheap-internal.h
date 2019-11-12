@@ -78,8 +78,9 @@ int min_heap_push_(min_heap_t* s, struct event* e)
 	//检查最小堆中内存是否够
 	if(min_heap_reserve_(s, s->n+1))
 		return -1;
-	
-	
+	//从数组最后一个节点开始,向最小堆父节点比较元素,元素小于父元素向上移动 (注意:这里没有同层元素比较！！！！) 
+	min_heap_shift_up_(s, s->n++, e);
+	return 0;
 }
 
 struct event* min_heap_pop_(min_heap_t* s)
@@ -87,9 +88,10 @@ struct event* min_heap_pop_(min_heap_t* s)
 
 }
 
+//判断节点是否是最小值
 int min_heap_elt_is_top_(const struct event *e)
 {
-
+	return e->ev_timeout_pos.min_heap_idx==0;
 }
 
 int min_heap_erase_(min_heap_t* s, struct event* e)
@@ -99,7 +101,21 @@ int min_heap_erase_(min_heap_t* s, struct event* e)
 
 int min_heap_adjust_(min_heap_t *s, struct event *e)
 {
-
+	//先判断某个元素是否在堆中  如果不在堆中直接push操作
+	if(EV_SIZE_MAX==e->ev_timeout_pos.min_heap_idx){
+		min_heap_push_(s, e);
+	}else{
+		size_t parent=(e->ev_timeout_pos.min_heap_idx-1)/2;
+		//如果父元素大于e节点  则上浮  否则下沉
+		if(e->ev_timeout_pos.min_heap_idx>0&&min_heap_elem_greater(s->p[parent], e)){
+			//上浮
+			min_heap_shift_up_unconditional_(s, e->ev_timeout_pos.min_heap_idx, e);
+		}else{
+			//下沉
+			
+		}
+		
+	}
 }
 
 //调整分配内存
@@ -125,12 +141,33 @@ int min_heap_reserve_(min_heap_t* s, size_t n)
 
 void min_heap_shift_up_unconditional_(min_heap_t* s, size_t hole_index, struct event* e)
 {
-   
+	size_t parent =(hole_index-1)/2;
+	do{
+		//父节点下沉
+		(s->p[hole_index]=parent)->ev_timeout_pos.min_heap_idx=hole_index;
+		hole_index=parent;
+		parent=(hole_index-1)/2;
+	}while(hole_index>0&&min_heap_elem_greater(s->p[parent], e));
+	(s->p[hole_index]=e)->ev_timeout_pos.min_heap_idx=e;
 }
 
 void min_heap_shift_up_(min_heap_t* s, size_t hole_index, struct event* e)
 {
-    
+	//获取父节点索引
+    size_t parent=(hole_index-1)/2;
+	//只要hole_index不等于0  (非根节点)和父节点大于e几点， 将节点和父节点比较，直到找到根节点或者父节点小于当前节点，在当前节点插入元素
+	while(hole_index>0&&min_heap_elem_greater(s->p[parent], e)){
+		//父节点大于e节点，节点下沉
+		(s->p[hole_index]=parent)->ev_timeout_pos.min_heap_idx=hole_index;
+
+		//向上比较
+		//父节点赋值给当前节点
+		hole_index=parent;
+		//找到新的父节点
+		parent=(hole_index-1)/2;
+	}
+	//修改event对象在最小堆中的索引
+	(s->p[hole_index]=e)->ev_timeout_pos.min_heap_idx=hole_index;	
 }
 
 void min_heap_shift_down_(min_heap_t* s, size_t hole_index, struct event* e)
